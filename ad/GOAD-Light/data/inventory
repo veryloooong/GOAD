@@ -85,8 +85,11 @@ srv02
 
 ; install mssql gui
 ; usage : servers.yml
+; disabled: aka.ms/ssmsfullsetup now serves SSMS 22 (VS 2022 shell); the mssql_ssms role drives it
+; with SSMS 18 switches (/install /quiet /norestart) and checks for a "...Management Studio 18"
+; path, so the bootstrapper falls back to interactive and hangs. Re-add once the role is updated.
 [mssql_ssms]
-srv02
+;srv02
 
 ; install webdav 
 [webdav]

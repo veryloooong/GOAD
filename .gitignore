@@ -38,3 +38,14 @@ docs/site/
 docs/olddocs/
 docs/mkdocs/site/
 scripts/archives/
+
+# Devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml

@@ -42,10 +42,19 @@
     path: c:\setup\mssql\media
     state: directory
 
+# render on the controller: ansible.windows 3.x + ansible-core 2.21 win_template copies the
+# template verbatim (no variable substitution), which SQL setup then rejects
 - name: create the configuration file
-  win_template: 
-    src: files/sql_conf.ini.{{sql_version}}.j2
+  ansible.windows.win_copy:
+    content: "{{ lookup('ansible.builtin.template', role_path ~ '/files/sql_conf.ini.' ~ sql_version ~ '.j2') }}"
     dest: c:\setup\mssql\sql_conf.ini
+
+# SQL setup refuses the ini if the jinja2 header line is left in it or if the line endings are LF
+- name: normalize the configuration file for SQL setup (drop jinja header, force CRLF)
+  ansible.windows.win_shell: |
+    $p = 'c:\setup\mssql\sql_conf.ini'
+    $lines = [System.IO.File]::ReadAllLines($p) | Where-Object { $_ -notlike '#jinja2:*' }
+    [System.IO.File]::WriteAllText($p, (($lines -join "`r`n") + "`r`n"), [System.Text.Encoding]::ASCII)
 
 - name: check downloaded file exists
   win_stat:
@@ -85,9 +94,24 @@
 
 - debug: msg="{{mssql_install_already_done}}"
 
+# The SSEI bootstrap rejects an unattended install driven by a configuration file
+# ("Invalid value ... for setting 'ConfigurationFile'"), so use it only to download the media
+# and run the install from the media's setup.exe, which is the supported path.
+- name: Download the SQL Server media
+  win_command: c:\setup\mssql\sql_installer.exe /ACTION=Download /MEDIAPATH=c:\setup\mssql\media /QUIET /HIDEPROGRESSBAR
+  args:
+    chdir: c:\setup
+    creates: c:\setup\mssql\media\SQLEXPR_x64_ENU.exe
+
+- name: Extract the SQL Server media
+  win_command: c:\setup\mssql\media\SQLEXPR_x64_ENU.exe /Q /X:c:\setup\mssql\media\extracted
+  args:
+    chdir: c:\setup
+    creates: c:\setup\mssql\media\extracted\setup.exe
+
 # Install the database with a domain admin user
 - name: Install the database
-  win_command: c:\setup\mssql\sql_installer.exe /configurationfile=c:\setup\mssql\sql_conf.ini /IACCEPTSQLSERVERLICENSETERMS /MEDIAPATH=c:\setup\mssql\media /QUIET /HIDEPROGRESSBAR
+  win_command: c:\setup\mssql\media\extracted\setup.exe /Q /IACCEPTSQLSERVERLICENSETERMS /CONFIGURATIONFILE=c:\setup\mssql\sql_conf.ini
   args:
     chdir: c:\setup
   vars:
